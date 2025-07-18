@@ -13,8 +13,8 @@
 # limitations under the License.
 
 name: slurmdbd
-version: 25.05.1
-summary: The database daemon of Slurm
+version: 23.11.4-1
+summary: The Slurm database daemon
 description: |
   slurmdbd provides a secure enterprise-wide interface to a database for Slurm.
   This is particularly useful for archiving accounting records.
@@ -23,4 +23,29 @@ base: ubuntu@24.04
 platforms:
   amd64:
 
-parts: {}
+services:
+  slurmdbd:
+    override: replace
+    startup: enabled
+    command: /usr/sbin/slurmdbd -D -s
+    on-failure: restart
+    backoff-delay: 10s
+
+parts:
+  slurmdbd:
+    plugin: nil
+    overlay-packages:
+      - slurmdbd
+      - slurm-wlm-plugins
+
+  slurm-user:
+    after:
+      - slurmdbd
+    plugin: nil
+    overlay-script: |
+      mkdir -p $CRAFT_OVERLAY/var/lib/slurm/checkpoint
+      mkdir -p $CRAFT_OVERLAY/run/slurmdbd
+      chmod -R 755 $CRAFT_OVERLAY/var/lib/slurm
+      chmod -R 755 $CRAFT_OVERLAY/run/slurmdbd
+      chroot $CRAFT_OVERLAY chown -R slurm:slurm /var/lib/slurm
+      chroot $CRAFT_OVERLAY chown -R slurm:slurm /run/slurmdbd

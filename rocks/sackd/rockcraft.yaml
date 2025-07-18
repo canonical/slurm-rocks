@@ -13,10 +13,10 @@
 # limitations under the License.
 
 name: sackd
-version: 25.05.1
-summary: The Slurm authentication and credential kiosk daemon of Slurm
+version: 23.11.4-1
+summary: The Slurm authentication and credential kiosk daemon
 description: |
-  sackd  is the Slurm Auth and Cred Kiosk Daemon. It can be used on login
+  sackd is the Slurm Auth and Cred Kiosk Daemon. It can be used on login
   nodes that are not running slurmd daemons to allow authentication to
   the cluster. The program will run as the SlurmdUser. When running in
   Slurm's "configless" mode, in which case configuration files are retrieved
@@ -26,4 +26,29 @@ base: ubuntu@24.04
 platforms:
   amd64:
 
-parts: {}
+services:
+  sackd:
+    override: replace
+    startup: enabled
+    command: /usr/sbin/sackd -D
+    user: slurm
+    group: slurm
+    on-failure: restart
+    backoff-delay: 10s
+
+parts:
+  sackd:
+    plugin: nil
+    overlay-packages:
+      - sackd
+      - slurm-client
+      - slurm-wlm-plugins
+
+  slurm-user:
+    after:
+      - sackd
+    plugin: nil
+    overlay-script: |
+      mkdir -p $CRAFT_OVERLAY/run/slurm
+      chmod -R 755 $CRAFT_OVERLAY/run/slurm
+      chroot $CRAFT_OVERLAY chown -R slurm:slurm /run/slurm

@@ -13,13 +13,41 @@
 # limitations under the License.
 
 name: slurmrestd
-version: 25.05.1
-summary: The REST API daemon of Slurm
+version: 23.11.4-1
+summary: The Slurm REST API daemon
 description: |
-  slurmrestd is REST API interface for Slurm.
+  slurmrestd is the REST API interface for Slurm.
 
 base: ubuntu@24.04
 platforms:
   amd64:
 
-parts: {}
+services:
+  slurmrestd:
+    override: replace
+    startup: enabled
+    command: /usr/sbin/slurmrestd -u slurmrestd -g slurmrestd [ 0.0.0.0:6820 ]
+    on-failure: restart
+    backoff-delay: 30s
+    environment:
+      SLURM_JWT: daemon
+
+parts:
+  slurmrestd:
+    plugin: nil
+    overlay-packages:
+      - slurmrestd
+      - slurm-wlm-plugins
+
+  slurm-user:
+    after:
+      - slurmrestd
+    plugin: nil
+    overlay-script: |
+      useradd \
+        --root $CRAFT_OVERLAY \
+        --system \
+        --uid 64031 \
+        --no-create-home \
+        --shell /bin/false \
+        slurmrestd
