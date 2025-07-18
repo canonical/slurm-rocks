@@ -13,10 +13,10 @@
 # limitations under the License.
 
 name: slurmd
-version: 25.05.1
-summary: The compute node daemon of Slurm
+version: 23.11.4-1
+summary: The Slurm compute node daemon
 description: |
-  slurmd  is  the compute node daemon of Slurm. It monitors all tasks running
+  slurmd is the compute node daemon of Slurm. It monitors all tasks running
   on the compute node, accepts work (tasks), launches tasks, and kills running
   tasks upon request.
 
@@ -24,4 +24,36 @@ base: ubuntu@24.04
 platforms:
   amd64:
 
-parts: {}
+services:
+  slurmd:
+    override: replace
+    startup: enabled
+    command: /usr/sbin/entrypoint.sh
+    on-failure: restart
+    backoff-delay: 10s
+
+parts:
+  entrypoint:
+    plugin: dump
+    source: ./scripts
+    source-type: local
+    organize:
+      entrypoint.sh: usr/sbin/
+
+  slurmd:
+    plugin: nil
+    overlay-packages:
+      - slurmd
+      - slurm-wlm-plugins
+      - slurm-client
+      - libpmix-dev
+      - openmpi-bin
+
+  slurm-user:
+    after:
+      - slurmd
+    plugin: nil
+    overlay-script: |
+      mkdir -p $CRAFT_OVERLAY/run/slurm
+      chmod -R 755 $CRAFT_OVERLAY/run/slurm
+      chroot $CRAFT_OVERLAY chown -R slurm:slurm /run/slurm

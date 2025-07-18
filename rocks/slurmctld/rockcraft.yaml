@@ -13,8 +13,8 @@
 # limitations under the License.
 
 name: slurmctld
-version: 25.05.1
-summary: The central management daemon of Slurm
+version: 23.11.4-1
+summary: The Slurm central management daemon
 description: |
   slurmctld is the central management daemon of Slurm. It monitors all other
   Slurm daemons and resources, accepts work (jobs), and allocates resources to
@@ -26,4 +26,31 @@ base: ubuntu@24.04
 platforms:
   amd64:
 
-parts: {}
+services:
+  slurmctld:
+    override: replace
+    startup: enabled
+    command: /usr/sbin/slurmctld -D [ -f /etc/slurm/slurm.conf -L /var/log/slurm/slurmctld.log ]
+    on-failure: restart
+    backoff-delay: 10s
+
+parts:
+  slurmctld:
+    plugin: nil
+    overlay-packages:
+      - slurmctld
+      - slurm-wlm-plugins
+      - libpmix-dev
+      - mailutils
+
+  slurm-user:
+    after:
+      - slurmctld
+    plugin: nil
+    overlay-script: |
+      mkdir -p $CRAFT_OVERLAY/var/lib/slurm/checkpoint
+      mkdir -p $CRAFT_OVERLAY/run/slurmctld
+      chmod -R 755 $CRAFT_OVERLAY/var/lib/slurm
+      chmod -R 755 $CRAFT_OVERLAY/run/slurmctld
+      chroot $CRAFT_OVERLAY chown -R slurm:slurm /var/lib/slurm
+      chroot $CRAFT_OVERLAY chown -R slurm:slurm /run/slurmctld
