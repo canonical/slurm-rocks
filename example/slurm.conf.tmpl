@@ -1,0 +1,27 @@
+SlurmctldHost=$SLURMCTLD(slurmctld)
+ClusterName=charmed-hpc
+SlurmctldParameters=enable_configless
+ProctrackType=proctrack/linuxproc
+TaskPlugin=task/affinity
+JobAcctGatherType=jobacct_gather/linux
+AccountingStorageHost=$SLURMDBD
+AccountingStorageType=accounting_storage/slurmdbd
+AccountingStoragePort=6819
+AuthAltTypes=auth/jwt
+AuthAltParameters=jwt_key=/var/lib/slurm/checkpoint/jwt_hs256.key
+AuthType=auth/slurm
+CredType=auth/slurm
+PluginDir=/usr/lib/x86_64-linux-gnu/slurm-wlm
+SlurmctldPort=6817
+SlurmdPort=6818
+StateSaveLocation=/var/lib/slurm/checkpoint
+SlurmdSpoolDir=/var/lib/slurm/slurmd
+SlurmctldLogFile=/var/log/slurm/slurmctld.log
+SlurmdLogFile=/var/log/slurm/slurmd.log
+SlurmdPidFile=/var/run/slurmd.pid
+SlurmctldPidFile=/var/run/slurmctld.pid
+SlurmUser=slurm
+SlurmdUser=root
+NodeName=$SLURMD CPUs=32 Boards=1 SocketsPerBoard=1 CoresPerSocket=16 ThreadsPerCore=2 RealMemory=95499 MemSpecLimit=1024
+DownNodes=$SLURMD State=DOWN Reason="New node."
+PartitionName=part State=UP Nodes=$SLURMD Default=YES
