@@ -42,9 +42,9 @@ pack *args:
         echo
     done
 
-# Import rocks into the Docker daemon
+# Publish rocks into an OCI archive
 [group("dev")]
-import *args:
+publish base version="latest" *args:
     #!/usr/bin/env bash
     set -eu pipefail
 
@@ -52,11 +52,13 @@ import *args:
     for target in ${targets[@]}; do
         name=$(basename $target)
         rock=$(find {{build_dir}} -maxdepth 1 -type f -iname "${name}_*.rock" | head -1)
-        echo -e "\033[1mImporting rock $name\033[0m"
+        echo -e "\033[1mPublishing rock $name\033[0m"
         {{skopeo}} --insecure-policy copy \
+            ${DEST_CREDS:+--dest-creds $DEST_CREDS} \
             oci-archive:$rock \
-            docker-daemon:${name}:latest
+            {{base}}${name}:{{version}}
     done
+
 
 # Clean project directory and rock builder instances
 [group("dev")]
