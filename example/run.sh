@@ -3,7 +3,8 @@
 set -eux pipefail
 
 # Creates a common network that will be used by all the Slurm services.
-docker network create charmed-hpc
+docker network inspect charmed-hpc >/dev/null 2>&1 || \
+    docker network create charmed-hpc
 
 docker run --rm -d \
     --name slurmctld \
@@ -115,5 +116,6 @@ cat slurmdbd.conf.tmpl | envsubst | docker exec -i slurmdbd sh -c 'cat > /etc/sl
 # Make sure the slurmctld daemon has time to setup itself.
 sleep 10
 
-# Restart the slurmd service to establish the connection with the slurmctld service
+# Restart the slurmd and sackd services to establish the connection with the slurmctld service
 docker exec slurmd pebble restart slurmd
+docker exec slurmd pebble restart sackd

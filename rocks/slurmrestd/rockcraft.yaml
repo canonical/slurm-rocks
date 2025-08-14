@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: slurmrestd
-version: 23.11.4-1
+version: 24.11.3-2
 summary: The Slurm REST API daemon
 description: |
   slurmrestd is the REST API interface for Slurm.
@@ -21,6 +21,9 @@ description: |
 base: ubuntu@24.04
 platforms:
   amd64:
+package-repositories:
+  - type: apt
+    ppa: ubuntu-hpc/slurm-wlm-24.11
 
 services:
   slurmrestd:

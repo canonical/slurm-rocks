@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: slurmctld
-version: 23.11.4-1
+version: 24.11.3-2
 summary: The Slurm central management daemon
 description: |
   slurmctld is the central management daemon of Slurm. It monitors all other
@@ -25,6 +25,9 @@ description: |
 base: ubuntu@24.04
 platforms:
   amd64:
+package-repositories:
+  - type: apt
+    ppa: ubuntu-hpc/slurm-wlm-24.11
 
 services:
   slurmctld:
