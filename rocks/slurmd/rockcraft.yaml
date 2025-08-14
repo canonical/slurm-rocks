@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: slurmd
-version: 23.11.4-1
+version: 24.11.3-2
 summary: The Slurm compute node daemon
 description: |
   slurmd is the compute node daemon of Slurm. It monitors all tasks running
@@ -23,23 +23,19 @@ description: |
 base: ubuntu@24.04
 platforms:
   amd64:
+package-repositories:
+  - type: apt
+    ppa: ubuntu-hpc/slurm-wlm-24.11
 
 services:
   slurmd:
     override: replace
     startup: enabled
-    command: /usr/sbin/entrypoint.sh
+    command: /usr/sbin/slurmd -D -s [ ]
     on-failure: restart
     backoff-delay: 10s
 
 parts:
-  entrypoint:
-    plugin: dump
-    source: ./scripts
-    source-type: local
-    organize:
-      entrypoint.sh: usr/sbin/
-
   slurmd:
     plugin: nil
     overlay-packages:

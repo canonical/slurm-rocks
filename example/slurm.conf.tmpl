@@ -22,6 +22,6 @@ SlurmdPidFile=/var/run/slurmd.pid
 SlurmctldPidFile=/var/run/slurmctld.pid
 SlurmUser=slurm
 SlurmdUser=root
-NodeName=$SLURMD CPUs=32 Boards=1 SocketsPerBoard=1 CoresPerSocket=16 ThreadsPerCore=2 RealMemory=95499 MemSpecLimit=1024
+NodeName=$SLURMD
 DownNodes=$SLURMD State=DOWN Reason="New node."
 PartitionName=part State=UP Nodes=$SLURMD Default=YES
