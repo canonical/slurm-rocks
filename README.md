@@ -15,7 +15,7 @@ just publish  # Publishes all the rocks to your local Docker registry.
 docker run --rm -d --name slurmctld slurmctld:latest  # Runs the slurmctld rock with Docker.
 ```
 
-A more extensive usage example can be seen on the (example)[./example] directory, which sets up all
+A more extensive usage example can be seen on the [example](./example) directory, which sets up all
 the Slurm services into a simple cluster.
 
 [Rockcraft]: https://documentation.ubuntu.com/rockcraft
