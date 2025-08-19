@@ -33,7 +33,9 @@ services:
   slurmctld:
     override: replace
     startup: enabled
-    command: /usr/sbin/slurmctld -D [ -f /etc/slurm/slurm.conf -L /var/log/slurm/slurmctld.log ]
+    command: >-
+      /usr/sbin/slurmctld -D
+      [ -f /etc/slurm/slurm.conf -L /var/log/slurm/slurmctld.log ]
     on-failure: restart
     backoff-delay: 10s
 
