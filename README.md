@@ -11,7 +11,7 @@ packing the rocks, [skopeo] for copying the generated OCI images to your local D
 
 ```bash
 just pack  # Packs all the rocks.
-just publish  # Publishes all the rocks to your local Docker registry.
+just publish docker-daemon: # Publishes all the rocks to your local Docker registry.
 docker run --rm -d --name slurmctld slurmctld:latest  # Runs the slurmctld rock with Docker.
 ```
 
