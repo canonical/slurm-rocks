@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: slurmdbd
-version: 24.11.3-2
+version: 25.05.3
 summary: The Slurm database daemon
 description: |
   slurmdbd provides a secure enterprise-wide interface to a database for Slurm.
@@ -24,15 +24,18 @@ platforms:
   amd64:
 package-repositories:
   - type: apt
-    ppa: ubuntu-hpc/slurm-wlm-24.11
+    ppa: ubuntu-hpc/slurm-wlm-25.05
 
 services:
   slurmdbd:
     override: replace
     startup: enabled
-    command: /usr/sbin/slurmdbd -D -s
-    on-failure: restart
-    backoff-delay: 10s
+    command: /usr/sbin/slurmdbd -D [ -v ]
+    backoff-delay: 1s
+
+# Slinky provides arguments to the entrypoint directly, so we need to use an
+# entry point service to receive those arguments.
+entrypoint-service: slurmdbd
 
 parts:
   slurmdbd:
@@ -40,15 +43,11 @@ parts:
     overlay-packages:
       - slurmdbd
       - slurm-wlm-plugins
-
-  slurm-user:
-    after:
-      - slurmdbd
-    plugin: nil
     overlay-script: |
-      mkdir -p $CRAFT_OVERLAY/var/lib/slurm/checkpoint
-      mkdir -p $CRAFT_OVERLAY/run/slurmdbd
-      chmod -R 755 $CRAFT_OVERLAY/var/lib/slurm
-      chmod -R 755 $CRAFT_OVERLAY/run/slurmdbd
-      chroot $CRAFT_OVERLAY chown -R slurm:slurm /var/lib/slurm
-      chroot $CRAFT_OVERLAY chown -R slurm:slurm /run/slurmdbd
+      chroot $CRAFT_OVERLAY usermod -u 401 slurm
+      chroot $CRAFT_OVERLAY groupmod -g 401 slurm
+      chroot $CRAFT_OVERLAY find / -xdev -uid 64030 -exec chown 401 '{}' \+
+      chroot $CRAFT_OVERLAY find / -xdev -gid 64030 -exec chown 401 '{}' \+
+      mkdir -p $CRAFT_OVERLAY/var/lib/slurm/checkpoint $CRAFT_OVERLAY/run/slurmdbd
+      chmod -R 755 $CRAFT_OVERLAY/var/lib/slurm $CRAFT_OVERLAY/run/slurmdbd
+      chroot $CRAFT_OVERLAY chown -R slurm:slurm /var/lib/slurm /run/slurmdbd

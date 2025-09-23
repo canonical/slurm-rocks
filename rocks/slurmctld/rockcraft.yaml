@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: slurmctld
-version: 24.11.3-2
+version: 25.05.3
 summary: The Slurm central management daemon
 description: |
   slurmctld is the central management daemon of Slurm. It monitors all other
@@ -27,19 +27,29 @@ platforms:
   amd64:
 package-repositories:
   - type: apt
-    ppa: ubuntu-hpc/slurm-wlm-24.11
+    ppa: ubuntu-hpc/slurm-wlm-25.05
 
 services:
   slurmctld:
     override: replace
     startup: enabled
-    command: >-
-      /usr/sbin/slurmctld -D
-      [ -f /etc/slurm/slurm.conf -L /var/log/slurm/slurmctld.log ]
-    on-failure: restart
-    backoff-delay: 10s
+    command: /usr/sbin/entrypoint.sh [ -v ]
+    backoff-delay: 1s
+    environment:
+      NOTIFY_SOCKET: /dev/null
+
+# Slinky provides arguments to the entrypoint directly, so we need to use an
+# entry point service to receive those arguments.
+entrypoint-service: slurmctld
 
 parts:
+  entrypoint:
+    plugin: dump
+    source: ./scripts
+    source-type: local
+    organize:
+      entrypoint.sh: usr/sbin/
+
   slurmctld:
     plugin: nil
     overlay-packages:
@@ -47,15 +57,16 @@ parts:
       - slurm-wlm-plugins
       - libpmix-dev
       - mailutils
-
-  slurm-user:
-    after:
-      - slurmctld
-    plugin: nil
+      # By default, the Slinky helm chart uses two instances of the `slurmctld`
+      # container for the controller pod, one of them being the service and the
+      # other one being the reconfigure detector, which uses `tini`. This is why
+      # we require `tini` here.
+      - tini
     overlay-script: |
-      mkdir -p $CRAFT_OVERLAY/var/lib/slurm/checkpoint
-      mkdir -p $CRAFT_OVERLAY/run/slurmctld
-      chmod -R 755 $CRAFT_OVERLAY/var/lib/slurm
-      chmod -R 755 $CRAFT_OVERLAY/run/slurmctld
-      chroot $CRAFT_OVERLAY chown -R slurm:slurm /var/lib/slurm
-      chroot $CRAFT_OVERLAY chown -R slurm:slurm /run/slurmctld
+      chroot $CRAFT_OVERLAY usermod -u 401 slurm
+      chroot $CRAFT_OVERLAY groupmod -g 401 slurm
+      chroot $CRAFT_OVERLAY find / -xdev -uid 64030 -exec chown 401 '{}' \+
+      chroot $CRAFT_OVERLAY find / -xdev -gid 64030 -exec chown 401 '{}' \+
+      mkdir -p $CRAFT_OVERLAY/var/lib/slurm/checkpoint $CRAFT_OVERLAY/run/slurmctld
+      chmod -R 755 $CRAFT_OVERLAY/var/lib/slurm $CRAFT_OVERLAY/run/slurmctld
+      chroot $CRAFT_OVERLAY chown -R slurm:slurm /var/lib/slurm /run/slurmctld

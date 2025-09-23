@@ -12,15 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: sackd
+name: login
 version: 25.05.3
-summary: The Slurm authentication and credential kiosk daemon
+summary: The Slurm login node
 description: |
-  sackd is the Slurm Auth and Cred Kiosk Daemon. It can be used on login
-  nodes that are not running slurmd daemons to allow authentication to
-  the cluster. The program will run as the SlurmdUser. When running in
-  Slurm's "configless" mode, in which case configuration files are retrieved
-  and written under the /run/slurm/conf directory.
+  login is an extension of the sackd node with additional services to support
+  user login.
 
 base: ubuntu@24.04
 platforms:
@@ -33,22 +30,42 @@ services:
   sackd:
     override: replace
     startup: enabled
-    command: /usr/sbin/entrypoint.sh [ -v ]
+    command: /usr/sbin/sackd.sh
     backoff-delay: 1s
     environment:
       NOTIFY_SOCKET: /dev/null
 
-# Slinky provides arguments to the entrypoint directly, so we need to use an
-# entry point service to receive those arguments.
-entrypoint-service: sackd
+  sshd:
+    override: replace
+    startup: enabled
+    command: /usr/sbin/sshd.sh
+    backoff-delay: 1s
+
+  sssd:
+    override: replace
+    startup: enabled
+    command: /usr/sbin/sssd.sh
+    backoff-delay: 1s
+
+  oddjobd:
+    override: replace
+    startup: enabled
+    command: /usr/sbin/oddjob.sh
+    backoff-delay: 1s
+
+  dbus:
+    override: replace
+    startup: enabled
+    command: /usr/sbin/dbus.sh
+    backoff-delay: 1s
 
 parts:
-  entrypoint:
+  wrappers:
     plugin: dump
     source: ./scripts
     source-type: local
     organize:
-      entrypoint.sh: usr/sbin/
+      "*.sh": usr/sbin/
 
   sackd:
     plugin: nil
@@ -56,7 +73,6 @@ parts:
       - sackd
       - slurm-client
       - slurm-wlm-plugins
-      - tini
     overlay-script: |
       chroot $CRAFT_OVERLAY usermod -u 401 slurm
       chroot $CRAFT_OVERLAY groupmod -g 401 slurm
@@ -66,16 +82,21 @@ parts:
       chmod -R 755 $CRAFT_OVERLAY/run/slurm
       chroot $CRAFT_OVERLAY chown -R slurm:slurm /run/slurm
 
-  # Requirements for Slinky compatibility
-  slinky-compat:
+  auth:
     plugin: nil
     overlay-packages:
-      - rsync
-      - gettext-base
-      - iputils-ping
-    stage-snaps:
-      - kubectl/1.33/stable
-    organize:
-      kubectl: bin/kubectl
-    stage:
-      - bin/kubectl
+      - openssh-server
+      - dbus-daemon
+      - oddjob-mkhomedir
+      - authselect
+      - sssd
+      - sssd-ad
+      - sssd-ldap
+      - sssd-dbus
+      - libpam-sss
+      - libnss-sss
+    overlay-script: |
+      mkdir -p $CRAFT_OVERLAY/run/sshd $CRAFT_OVERLAY/run/dbus $CRAFT_OVERLAY/etc/authselect
+      chmod 0755 $CRAFT_OVERLAY/run/sshd
+      rm -f $CRAFT_OVERLAY/var/run/dbus/pid $CRAFT_OVERLAY/etc/ssh/ssh_host_*
+      chroot $CRAFT_OVERLAY authselect select sssd with-mkhomedir --force
