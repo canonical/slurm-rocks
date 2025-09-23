@@ -42,7 +42,12 @@ pack *args:
         echo
     done
 
-# Publish rocks into an OCI archive
+[doc("""
+  Publish rocks into an OCI archive using `skopeo copy`.
+
+  The `SKOPEO_FLAGS` environment variable can be used to pass any arguments to
+  Skopeo.
+""")]
 [group("dev")]
 publish base version="latest" *args:
     #!/usr/bin/env bash
@@ -54,7 +59,7 @@ publish base version="latest" *args:
         rock=$(find {{build_dir}} -maxdepth 1 -type f -iname "${name}_*.rock" | head -1)
         echo -e "\033[1mPublishing rock $name\033[0m"
         {{skopeo}} --insecure-policy copy \
-            ${DEST_CREDS:+--dest-creds $DEST_CREDS} \
+            ${SKOPEO_FLAGS:-} \
             oci-archive:$rock \
             {{base}}${name}:{{version}}
     done

@@ -45,7 +45,7 @@ jobs:
       - name: Publish rocks to ghcr.io in latest channel
         if: ${{ github.ref_type }} == "branch"
         env:
-          DEST_CREDS: ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}
+          SKOPEO_FLAGS: --dest-creds ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}
         run: |
           versions=(latest "${{ github.sha }}")
           for version in "${versions[@]}"; do
