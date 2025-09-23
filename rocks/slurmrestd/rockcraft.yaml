@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: slurmrestd
-version: 24.11.3-2
+version: 25.05.3
 summary: The Slurm REST API daemon
 description: |
   slurmrestd is the REST API interface for Slurm.
@@ -23,17 +23,20 @@ platforms:
   amd64:
 package-repositories:
   - type: apt
-    ppa: ubuntu-hpc/slurm-wlm-24.11
+    ppa: ubuntu-hpc/slurm-wlm-25.05
 
 services:
   slurmrestd:
     override: replace
     startup: enabled
-    command: /usr/sbin/slurmrestd -u slurmrestd -g slurmrestd [ 0.0.0.0:6820 ]
-    on-failure: restart
-    backoff-delay: 30s
+    command: /usr/sbin/slurmrestd [ -u slurm -g slurm 0.0.0.0:6820 ]
+    backoff-delay: 5s
     environment:
       SLURM_JWT: daemon
+
+# Slinky provides arguments to the entrypoint directly, so we need to use an
+# entry point service to receive those arguments.
+entrypoint-service: slurmrestd
 
 parts:
   slurmrestd:
@@ -41,16 +44,8 @@ parts:
     overlay-packages:
       - slurmrestd
       - slurm-wlm-plugins
-
-  slurm-user:
-    after:
-      - slurmrestd
-    plugin: nil
     overlay-script: |
-      useradd \
-        --root $CRAFT_OVERLAY \
-        --system \
-        --uid 64031 \
-        --no-create-home \
-        --shell /bin/false \
-        slurmrestd
+      chroot $CRAFT_OVERLAY usermod -u 401 slurm
+      chroot $CRAFT_OVERLAY groupmod -g 401 slurm
+      chroot $CRAFT_OVERLAY find / -xdev -uid 64030 -exec chown 401 '{}' \+
+      chroot $CRAFT_OVERLAY find / -xdev -gid 64030 -exec chown 401 '{}' \+

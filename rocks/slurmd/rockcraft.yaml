@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: slurmd
-version: 24.11.3-2
+version: 25.05.3
 summary: The Slurm compute node daemon
 description: |
   slurmd is the compute node daemon of Slurm. It monitors all tasks running
@@ -25,17 +25,29 @@ platforms:
   amd64:
 package-repositories:
   - type: apt
-    ppa: ubuntu-hpc/slurm-wlm-24.11
+    ppa: ubuntu-hpc/slurm-wlm-25.05
 
 services:
   slurmd:
     override: replace
     startup: enabled
-    command: /usr/sbin/slurmd -D -s [ ]
-    on-failure: restart
-    backoff-delay: 10s
+    command: /usr/sbin/entrypoint.sh [ -v ]
+    backoff-delay: 1s
+    environment:
+      NOTIFY_SOCKET: /dev/null
+
+# Slinky provides arguments to the entrypoint directly, so we need to use an
+# entry point service to receive those arguments.
+entrypoint-service: slurmd
 
 parts:
+  entrypoint:
+    plugin: dump
+    source: ./scripts
+    source-type: local
+    organize:
+      entrypoint.sh: usr/sbin/
+
   slurmd:
     plugin: nil
     overlay-packages:
@@ -44,12 +56,9 @@ parts:
       - slurm-client
       - libpmix-dev
       - openmpi-bin
-
-  slurm-user:
-    after:
-      - slurmd
-    plugin: nil
     overlay-script: |
-      mkdir -p $CRAFT_OVERLAY/run/slurm
-      chmod -R 755 $CRAFT_OVERLAY/run/slurm
-      chroot $CRAFT_OVERLAY chown -R slurm:slurm /run/slurm
+      chroot $CRAFT_OVERLAY usermod -u 401 slurm
+      chroot $CRAFT_OVERLAY groupmod -g 401 slurm
+      chroot $CRAFT_OVERLAY find / -xdev -uid 64030 -exec chown 401 '{}' \+
+      chroot $CRAFT_OVERLAY find / -xdev -gid 64030 -exec chown 401 '{}' \+
+      mkdir -p $CRAFT_OVERLAY/run/slurm $CRAFT_OVERLAY/var/spool/slurmd

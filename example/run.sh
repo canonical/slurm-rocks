@@ -3,50 +3,50 @@
 set -eux pipefail
 
 # Creates a common network that will be used by all the Slurm services.
-docker network inspect charmed-hpc >/dev/null 2>&1 || \
-    docker network create charmed-hpc
+docker network inspect charmed-hpc >/dev/null 2>&1 \
+    || docker network create charmed-hpc
 
-docker run --rm -d \
+docker run --rm --detach \
     --name slurmctld \
     --network charmed-hpc \
+    --user 401:401 \
     slurmctld:latest
 
-docker run --rm -d \
+docker run --rm --detach \
     --name slurmdbd \
     --network charmed-hpc \
+    --user 401:401 \
     slurmdbd:latest
 
-docker run --rm -d \
+docker run --rm --detach \
     --name sackd \
     --network charmed-hpc \
+    --user 401:401 \
     sackd:latest \
-        --args sackd \
         --conf-server slurmctld
 
 # The slurmd service requires a privileged container to setup its cgroup directory.
-docker run --rm -d \
+docker run --rm --detach \
     --name slurmd \
     --network charmed-hpc \
     --privileged \
     slurmd:latest \
-        --args slurmd \
         --conf-server slurmctld
 
 # The slurmrestd service requires SYS_ADMIN capabilities.
-docker run --rm -d \
+docker run --rm --detach \
     --name slurmrestd \
     --network charmed-hpc \
-    --cap-add SYS_ADMIN \
+    --user 65534:65534 \
     slurmrestd:latest \
-        --args slurmrestd \
         -f /etc/slurm/slurm.conf \
         0.0.0.0:6820
 
 # The slurmdbd service requires a MySQL database to store accounting data
-docker run --rm -d \
+docker run --rm --detach \
     --name mysql \
     --network charmed-hpc \
-    -e MYSQL_ROOT_PASSWORD=password \
+    --env MYSQL_ROOT_PASSWORD=password \
     mysql:latest
 
 export SLURMCTLD=$(docker exec slurmctld hostname -s)
@@ -70,52 +70,52 @@ docker cp /tmp/jwt_hs256.key slurmdbd:/var/lib/slurm/checkpoint/jwt_hs256.key
 
 # Setup the correct permissions for the keys.
 
-docker exec slurmctld chmod 600 /etc/slurm/slurm.key
-docker exec slurmctld chown slurm:slurm /etc/slurm/slurm.key
-docker exec slurmctld chmod 600 /var/lib/slurm/checkpoint/jwt_hs256.key
-docker exec slurmctld chown slurm:slurm /var/lib/slurm/checkpoint/jwt_hs256.key
+docker exec --user 0 slurmctld chmod 600 /etc/slurm/slurm.key
+docker exec --user 0 slurmctld chown slurm:slurm /etc/slurm/slurm.key
+docker exec --user 0 slurmctld chmod 600 /var/lib/slurm/checkpoint/jwt_hs256.key
+docker exec --user 0 slurmctld chown slurm:slurm /var/lib/slurm/checkpoint/jwt_hs256.key
 
-docker exec slurmd chmod 600 /etc/slurm/slurm.key
-docker exec slurmd chown slurm:slurm /etc/slurm/slurm.key
+docker exec --user 0 slurmd chmod 600 /etc/slurm/slurm.key
+docker exec --user 0 slurmd chown slurm:slurm /etc/slurm/slurm.key
 
-docker exec slurmdbd chmod 600 /etc/slurm/slurm.key
-docker exec slurmdbd chown slurm:slurm /etc/slurm/slurm.key
-docker exec slurmdbd chmod 600 /var/lib/slurm/checkpoint/jwt_hs256.key
-docker exec slurmdbd chown slurm:slurm /var/lib/slurm/checkpoint/jwt_hs256.key
+docker exec --user 0 slurmdbd chmod 600 /etc/slurm/slurm.key
+docker exec --user 0 slurmdbd chown slurm:slurm /etc/slurm/slurm.key
+docker exec --user 0 slurmdbd chmod 600 /var/lib/slurm/checkpoint/jwt_hs256.key
+docker exec --user 0 slurmdbd chown slurm:slurm /var/lib/slurm/checkpoint/jwt_hs256.key
 
-docker exec slurmrestd chmod 600 /etc/slurm/slurm.key
-docker exec slurmrestd chown slurmrestd:slurmrestd /etc/slurm/slurm.key
+docker exec --user 0 slurmrestd chmod 600 /etc/slurm/slurm.key
+docker exec --user 0 slurmrestd chown slurm:slurm /etc/slurm/slurm.key
 
-docker exec sackd chmod 600 /etc/slurm/slurm.key
-docker exec sackd chown slurm:slurm /etc/slurm/slurm.key
+docker exec --user 0 sackd chmod 600 /etc/slurm/slurm.key
+docker exec --user 0 sackd chown slurm:slurm /etc/slurm/slurm.key
 
 # Setup the correct permissions for the configuration files
 
-docker exec slurmctld touch /etc/slurm/slurm.conf
-docker exec slurmctld chmod 644 /etc/slurm/slurm.conf
-docker exec slurmctld chown slurm:slurm /etc/slurm/slurm.conf
-docker exec slurmctld touch /etc/slurm/cgroup.conf
-docker exec slurmctld chmod 644 /etc/slurm/cgroup.conf
-docker exec slurmctld chown slurm:slurm /etc/slurm/cgroup.conf
+docker exec --user 0 slurmctld touch /etc/slurm/slurm.conf
+docker exec --user 0 slurmctld chmod 644 /etc/slurm/slurm.conf
+docker exec --user 0 slurmctld chown slurm:slurm /etc/slurm/slurm.conf
+docker exec --user 0 slurmctld touch /etc/slurm/cgroup.conf
+docker exec --user 0 slurmctld chmod 644 /etc/slurm/cgroup.conf
+docker exec --user 0 slurmctld chown slurm:slurm /etc/slurm/cgroup.conf
 
-docker exec slurmdbd touch /etc/slurm/slurmdbd.conf
-docker exec slurmdbd chmod 600 /etc/slurm/slurmdbd.conf
-docker exec slurmdbd chown slurm:slurm /etc/slurm/slurmdbd.conf
+docker exec --user 0 slurmdbd touch /etc/slurm/slurmdbd.conf
+docker exec --user 0 slurmdbd chmod 600 /etc/slurm/slurmdbd.conf
+docker exec --user 0 slurmdbd chown slurm:slurm /etc/slurm/slurmdbd.conf
 
-docker exec slurmrestd touch /etc/slurm/slurm.conf
-docker exec slurmrestd chmod 644 /etc/slurm/slurm.conf
-docker exec slurmrestd chown slurmrestd:slurmrestd /etc/slurm/slurm.conf
+docker exec --user 0 slurmrestd touch /etc/slurm/slurm.conf
+docker exec --user 0 slurmrestd chmod 644 /etc/slurm/slurm.conf
+docker exec --user 0 slurmrestd chown slurm:slurm /etc/slurm/slurm.conf
 
 # Write the configuration files into the services.
 
-cat slurm.conf.tmpl | envsubst | docker exec -i slurmctld sh -c 'cat > /etc/slurm/slurm.conf'
-cat cgroup.conf | docker exec -i slurmctld sh -c 'cat > /etc/slurm/cgroup.conf'
-cat slurm.conf.tmpl | envsubst | docker exec -i slurmrestd sh -c 'cat > /etc/slurm/slurm.conf'
-cat slurmdbd.conf.tmpl | envsubst | docker exec -i slurmdbd sh -c 'cat > /etc/slurm/slurmdbd.conf'
-
-# Make sure the slurmctld daemon has time to setup itself.
-sleep 10
-
-# Restart the slurmd and sackd services to establish the connection with the slurmctld service
-docker exec slurmd pebble restart slurmd
-docker exec slurmd pebble restart sackd
+cat slurm.conf.tmpl \
+    | envsubst \
+    | docker exec --user 0 --interactive slurmctld sh -c 'cat > /etc/slurm/slurm.conf'
+cat cgroup.conf \
+    | docker exec --user 0 --interactive slurmctld sh -c 'cat > /etc/slurm/cgroup.conf'
+cat slurm.conf.tmpl \
+    | envsubst \
+    | docker exec --user 0 --interactive slurmrestd sh -c 'cat > /etc/slurm/slurm.conf'
+cat slurmdbd.conf.tmpl \
+    | envsubst \
+    | docker exec --user 0 --interactive slurmdbd sh -c 'cat > /etc/slurm/slurmdbd.conf'
