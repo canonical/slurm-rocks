@@ -16,9 +16,12 @@ set unstable := true
 rockcraft := require("rockcraft")
 skopeo := which("rockcraft.skopeo") || require("skopeo")
 yamllint := require("yamllint")
+lxc := require("lxc")
+yq := require("yq")
 
 build_dir := justfile_dir() / "_build"
 rocks_dir := justfile_dir() / "rocks"
+tests_dir := justfile_dir() / "tests"
 default_targets := shell("ls -d -- $1/*", rocks_dir)
 
 [private]
@@ -80,6 +83,71 @@ clean:
        {{rockcraft}} -v clean
        echo
     done
+
+[doc("""
+  Run integration tests using LXD
+
+  Setting the `SLURM_ROCKS_PRESERVE` environment will skip deleting the
+  machine after a test success. Failing a test will always preserve the machine
+  it was run on.
+""")]
+[group("dev")]
+integration:
+    #!/usr/bin/env bash
+    set -eu pipefail
+
+    run_test() {
+        test_file=$1
+        test_name=$(basename -s .sh $test_file)
+        export MACHINE="slurm-rocks-$test_name-{{choose('6', HEX)}}"
+
+        {{lxc}} launch ubuntu:24.04 $MACHINE \
+            -c limits.cpu=4 \
+            -c limits.memory=8GiB \
+            --device root,size=50GiB \
+            --vm \
+            --config=user.user-data="$(cat {{tests_dir / "vm-setup.yaml"}})"
+
+        processes=-1
+        while : ; do
+            processes=$({{lxc}} info $MACHINE | {{yq}} .Resources.Processes)
+            # The number of processes will be -1 if the LXD agent has not started.
+            [[ $processes -eq -1 ]] || break
+            sleep 2
+        done
+
+        echo -e "\033[1mWaiting for cloud-init\033[0m"
+        {{lxc}} exec $MACHINE -- cloud-init status --wait --long
+
+        targets=({{default_targets}})
+        for target in ${targets[@]}; do
+            name=$(basename $target)
+            rock=$(find {{build_dir}} -maxdepth 1 -type f -iname "${name}_*.rock" | head -1)
+            echo -e "\033[1mPushing rock $name\033[0m"
+            {{lxc}} file push $rock $MACHINE/root/${name}.rock
+
+            {{lxc}} exec $MACHINE -- rockcraft.skopeo copy \
+                --insecure-policy \
+                --dest-tls-verify=false \
+                oci-archive:/root/${name}.rock \
+                docker://localhost:30100/${name}:latest
+        done
+
+        echo -e "\033[1mRunning \`${test_name}\`\033[0m"
+        $test_file
+
+        if [ -v SLURM_ROCKS_PRESERVE ]; then
+            echo -e "\033[1mSkipped Cleaning up machine \`${MACHINE}\`\033[0m"
+        else
+            echo -e "\033[1mCleaning up machine \`${MACHINE}\`\033[0m"
+            {{lxc}} delete $MACHINE --force
+        fi
+    }
+
+    export -f run_test
+
+    find {{tests_dir}} -maxdepth 1 -type f -iname "test*.sh" \
+        | xargs -0L1 bash -c 'set -eu pipefail; run_test "$0"'
 
 # Check code against coding style standards
 [group("lint")]

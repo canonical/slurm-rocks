@@ -1,0 +1,130 @@
+#cloud-config
+
+# prerequisites
+snap:
+  commands:
+    00: [install, k8s, --classic]
+    01: [install, helm, --classic]
+    02: [install, rockcraft, --classic]
+
+write_files:
+  # Canonical k8s bootstrap setup
+  - path: /run/ck8s/bootstrap.yaml
+    defer: false
+    content: |
+      cluster-config:
+        network:
+          enabled: true
+        dns:
+          enabled: true
+        gateway:
+          enabled: true
+        ingress:
+          enabled: true
+        local-storage:
+          enabled: true
+  # Container registry deployment plan
+  - path: /run/ck8s/registry.yaml
+    defer: false
+    content: |
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: kube-registry
+      ---
+      apiVersion: v1
+      kind: Service
+      metadata:
+        labels:
+          app: registry
+        name: registry
+        namespace: kube-registry
+      spec:
+        ports:
+        - nodePort: 30100
+          port: 5000
+          protocol: TCP
+          targetPort: 5000
+        selector:
+          app: registry
+        type: NodePort
+      ---
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: registry-pvc
+        namespace: kube-registry
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+      ---
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        labels:
+          app: registry
+        name: registry
+        namespace: kube-registry
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: registry
+        template:
+          metadata:
+            labels:
+              app: registry
+          spec:
+            containers:
+            - image: registry:2
+              imagePullPolicy: IfNotPresent
+              name: registry
+              volumeMounts:
+              - mountPath: /var/lib/registry
+                name: registry-vol
+            volumes:
+            - name: registry-vol
+              persistentVolumeClaim:
+                claimName: registry-pvc
+
+runcmd:
+  - |
+    #!/bin/bash
+
+    set -eux pipefail
+
+    export HOME=/root
+
+    # Generate SSH keys to test the login nodes
+    ssh-keygen -t ed25519 -f $HOME/.ssh/id_ed25519 -N ""
+
+    k8s bootstrap --file /run/ck8s/bootstrap.yaml --timeout 5m
+    k8s status --wait-ready --timeout 20m
+    k8s kubectl wait pod --all --for=condition=Ready -n=kube-system --timeout=20m
+
+    # Need to setup .kube/config for helm
+    mkdir -p /root/.kube
+    k8s kubectl config view --raw > /root/.kube/config
+
+    # Install required helm charts for mariadb and slurm
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+    helm repo add jetstack https://charts.jetstack.io
+    helm repo update
+    helm install cert-manager jetstack/cert-manager \
+      --namespace cert-manager \
+      --create-namespace \
+      --set crds.enabled=true
+    helm install prometheus prometheus-community/kube-prometheus-stack \
+      --namespace prometheus \
+      --create-namespace \
+      --set installCRDs=true
+    k8s kubectl wait pod --all --for=condition=Ready -n=cert-manager --timeout=10m
+    k8s kubectl wait pod --all --for=condition=Ready -n=prometheus --timeout=10m
+
+    # Create container registry
+    k8s kubectl apply -f /run/ck8s/registry.yaml
+    k8s kubectl wait pod --all --for=condition=Ready -n=kube-registry --timeout=10m
