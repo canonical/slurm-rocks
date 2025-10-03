@@ -1,23 +1,42 @@
 # Using the Slurm rocks with Slinky
 
-First, install Microk8s
+First, install Canonical K8s
 
 ```shell
-sudo snap install microk8s --channel 1.34-strict/stable
-sudo usermod -a -G microk8s $USER
-mkdir -p ~/.kube
-chmod 0700 ~/.kube
-su - $USER
-microk8s status --wait-ready
-alias kubectl='microk8s kubectl'
+sudo snap install k8s --classic --channel 1.32-classic/stable
+alias kubectl='sudo k8s kubectl'
 ```
 
-Next, enable some required plugins
+Setup the required bootstrap configuration
 
 ```shell
-sudo microk8s enable hostpath-storage
-sudo microk8s enable cert-manager
-sudo microk8s enable observability
+cat <<EOF > bootstrap.yaml
+cluster-config:
+  network:
+    enabled: true
+  dns:
+    enabled: true
+  gateway:
+    enabled: true
+  ingress:
+    enabled: true
+  local-storage:
+    enabled: true
+EOF
+```
+
+Then, bootstrap and wait until the k8s cluster finishes its setup
+
+```shell
+sudo k8s bootstrap --file bootstrap.yaml
+sudo k8s status --wait-ready --timeout 10m
+```
+
+You will also need to setup `.kube/config` such that helm can fetch the k8s configuration
+```shell
+sudo mkdir -p /root/.kube
+sudo chmod 0700 /root/.kube
+kubectl config view --raw > /root/.kube/config
 ```
 
 Install Helm
@@ -26,9 +45,25 @@ Install Helm
 sudo snap install helm --classic
 ```
 
-Then, install the required helm repo
+Then, install the required helm repos
 ```shell
 helm repo add mariadb-operator https://helm.mariadb.com/mariadb-operator
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+```
+
+Deploy the certificate manager and the observability stacks
+```shell
+helm install cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --set crds.enabled=true
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace prometheus \
+  --create-namespace \
+  --set installCRDs=true
 ```
 
 Next, install the required custom resource definitions.

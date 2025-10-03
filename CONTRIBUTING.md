@@ -9,6 +9,9 @@ just pack
 
 # Publish all rocks to the docker-daemon registry
 just publish docker-daemon: latest
+
+# Run integration tests on the rocks using LXD
+just integration
 ```
 
 Run `just help` to view the full list of available recipes.
@@ -18,9 +21,12 @@ Run `just help` to view the full list of available recipes.
 
 ## Testing against Slinky
 
-To test the Rocks while hacking, you will first require deploying a local container
-registry. If you have [Docker](https://www.docker.com/) installed, you can
-deploy a local registry by running
+The [`vm-setup.yaml`](./tests/vm-setup.yaml) and [`test-slinky.sh`](./tests/test-slinky.sh)
+files show how to use [Canonical k8s][ck8s] to deploy a testing Slurm cluster with
+Slinky.
+
+If you plan on using an alternative local k8s implementation, and you have [Docker]
+installed, you can deploy a local registry by running
 
 ```shell
 docker run -d -p 5000:5000 --restart=always --name registry registry:2
@@ -35,3 +41,6 @@ SKOPEO_FLAGS='--dest-tls-verify=false' just publish docker://localhost:5000/ lat
 Then, you can follow the [Slinky guide][./SLINKY.md], replacing any reference to the
 Github Container Registry with the local container registry;
 `ghcr.io/canonical/slurm-rocks/slurmctld` becomes `localhost:5000/slurmctld`.
+
+[ck8s]: https://documentation.ubuntu.com/canonical-kubernetes/release-1.32
+[Docker]: https://www.docker.com/)
