@@ -1,4 +1,4 @@
-# Copyright 2025 Canonical Ltd.
+# Copyright 2025-2026 Canonical Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: slurmrestd
-version: 25.05.3
+version: "25.11"
 summary: The Slurm REST API daemon
 description: |
   slurmrestd is the REST API interface for Slurm.
@@ -23,16 +23,17 @@ platforms:
   amd64:
 package-repositories:
   - type: apt
-    ppa: ubuntu-hpc/slurm-wlm-25.05
+    components: [main, main/debug]
+    suites: [noble]
+    key-id: AE87121DC3E4A0B0F81FF023F6D0C5D5C6BEB37B
+    url: http://ppa.launchpadcontent.net/ubuntu-hpc/slurm-wlm-25.11/ubuntu
 
 services:
   slurmrestd:
     override: replace
     startup: enabled
-    command: /usr/sbin/slurmrestd [ -u slurm -g slurm 0.0.0.0:6820 ]
+    command: /usr/sbin/slurmrestd [ 0.0.0.0:6820 ]
     backoff-delay: 5s
-    environment:
-      SLURM_JWT: daemon
 
 # Slinky provides arguments to the entrypoint directly, so we need to use an
 # entry point service to receive those arguments.
@@ -42,10 +43,17 @@ parts:
   slurmrestd:
     plugin: nil
     overlay-packages:
+      # base
+      - procps
+      - iputils-ping
+      - ncurses-bin
+
+      # slurmrestd
+      - slurm-wlm-doc
       - slurmrestd
-      - slurm-wlm-plugins
-    overlay-script: |
-      chroot $CRAFT_OVERLAY usermod -u 401 slurm
-      chroot $CRAFT_OVERLAY groupmod -g 401 slurm
-      chroot $CRAFT_OVERLAY find / -xdev -uid 64030 -exec chown 401 '{}' \+
-      chroot $CRAFT_OVERLAY find / -xdev -gid 64030 -exec chown 401 '{}' \+
+      - libslurm44t64
+      - libslurm44t64-dbgsym
+      - slurm-wlm-basic-plugins
+      - slurm-wlm-basic-plugins-dbgsym
+      - slurm-wlm-jwt-plugin
+      - slurm-wlm-jwt-plugin-dbgsym

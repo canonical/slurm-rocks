@@ -1,4 +1,4 @@
-# Copyright 2025 Canonical Ltd.
+# Copyright 2025-2026 Canonical Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,12 +34,23 @@ pack *args:
     #!/usr/bin/env bash
     set -eu pipefail
 
+    shared_scripts={{justfile_dir()}}/usr/sbin
     mkdir -p {{build_dir}}
     targets=({{prepend(rocks_dir + "/", args) || default_targets}})
     for target in ${targets[@]}; do
-        echo -e "\033[1mPacking rock \`$(basename $target)\`\033[0m"
+        name=$(basename "$target")
+        echo -e "\033[1mPacking rock \`${name}\`\033[0m"
 
-        cd $target
+        # Stage the rock directory into _build/<name>/ and inject shared
+        # scripts so they are available inside the managed build instance.
+        staged="{{build_dir}}/${name}"
+        rm -rf "$staged"
+        mkdir -p "$staged"
+        cp -a "$target/." "$staged/"
+        mkdir -p "$staged/scripts"
+        cp "$shared_scripts"/*.sh "$staged/scripts/"
+
+        cd "$staged"
         {{rockcraft}} -v pack
         mv *.rock {{build_dir}}
         echo

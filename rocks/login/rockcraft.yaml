@@ -1,4 +1,4 @@
-# Copyright 2025 Canonical Ltd.
+# Copyright 2025-2026 Canonical Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: login
-version: 25.05.3
+version: "25.11"
 summary: The Slurm login node
 description: |
   login is an extension of the sackd node with additional services to support
@@ -24,39 +24,34 @@ platforms:
   amd64:
 package-repositories:
   - type: apt
-    ppa: ubuntu-hpc/slurm-wlm-25.05
+    components: [main, main/debug]
+    suites: [noble]
+    key-id: AE87121DC3E4A0B0F81FF023F6D0C5D5C6BEB37B
+    url: http://ppa.launchpadcontent.net/ubuntu-hpc/slurm-wlm-25.11/ubuntu
 
 services:
   sackd:
     override: replace
     startup: enabled
-    command: /usr/sbin/sackd.sh
+    command: >
+      /bin/bash -c 'exec /usr/sbin/fakesystemd.sh
+      /usr/sbin/sackd --systemd ${SACKD_OPTIONS:-} "$@"' _
+    kill-delay: 35s
     backoff-delay: 1s
-    environment:
-      NOTIFY_SOCKET: /dev/null
 
   sshd:
     override: replace
     startup: enabled
-    command: /usr/sbin/sshd.sh
+    command: >
+      /bin/bash -c 'ssh-keygen -A && exec /usr/sbin/sshd -D -e
+      ${SSHD_OPTIONS:-} "$@"' _
     backoff-delay: 1s
 
   sssd:
     override: replace
     startup: enabled
-    command: /usr/sbin/sssd.sh
-    backoff-delay: 1s
-
-  oddjobd:
-    override: replace
-    startup: enabled
-    command: /usr/sbin/oddjob.sh
-    backoff-delay: 1s
-
-  dbus:
-    override: replace
-    startup: enabled
-    command: /usr/sbin/dbus.sh
+    command: >
+      /bin/bash -c 'exec /usr/sbin/sssd -i ${SSSD_OPTIONS:-} "$@"' _
     backoff-delay: 1s
 
 parts:
@@ -85,18 +80,35 @@ parts:
   auth:
     plugin: nil
     overlay-packages:
+      # base
+      - procps
+      - iputils-ping
+      - ncurses-bin
+      # base-extra
+      - openmpi-bin
+      # sackd
+      - socat
+      - slurm-client
+      - slurm-client-dbgsym
+      - slurm-wlm-doc
+      - sackd
+      - sackd-dbgsym
+      - slurm-wlm-basic-plugins
+      - slurm-wlm-basic-plugins-dbgsym
+      - libslurm44t64
+      - libslurm44t64-dbgsym
+      # login
       - openssh-server
-      - dbus-daemon
-      - oddjob-mkhomedir
       - authselect
       - sssd
       - sssd-ad
       - sssd-ldap
-      - sssd-dbus
       - libpam-sss
       - libnss-sss
     overlay-script: |
-      mkdir -p $CRAFT_OVERLAY/run/sshd $CRAFT_OVERLAY/run/dbus $CRAFT_OVERLAY/etc/authselect
+      mkdir -p \
+        $CRAFT_OVERLAY/run/sshd \
+        $CRAFT_OVERLAY/etc/authselect
       chmod 0755 $CRAFT_OVERLAY/run/sshd
-      rm -f $CRAFT_OVERLAY/var/run/dbus/pid $CRAFT_OVERLAY/etc/ssh/ssh_host_*
       chroot $CRAFT_OVERLAY authselect select sssd with-mkhomedir --force
+      rm -f $CRAFT_OVERLAY/etc/ssh/ssh_host_*

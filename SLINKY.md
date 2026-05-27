@@ -69,7 +69,8 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
 Next, install the required custom resource definitions.
 ```shell
 helm install mariadb-operator-crds mariadb-operator/mariadb-operator-crds
-helm install slurm-operator-crds oci://ghcr.io/slinkyproject/charts/slurm-operator-crds:0.4.0
+helm install slurm-operator-crds oci://ghcr.io/slinkyproject/charts/slurm-operator-crds \
+  --version=1.1.0
 ```
 
 Furthermore, install the required operators:
@@ -157,7 +158,7 @@ helm install -n slurm slurmdb mariadb-operator/mariadb-cluster -f values-mariadb
 
 Download and update the slurm values file.
 ```shell
-curl -L https://raw.githubusercontent.com/SlinkyProject/slurm-operator/refs/tags/v0.4.0/helm/slurm/values.yaml \
+curl -L https://raw.githubusercontent.com/SlinkyProject/slurm-operator/refs/tags/v1.1.0/helm/slurm/values.yaml \
   -o values-slurm.yaml
 ```
 
@@ -167,7 +168,7 @@ For example, to use the `slurmctld` image, replace this:
 ```yaml
 image:
   repository: ghcr.io/slinkyproject/slurmctld
-  tag: 25.05-ubuntu24.04
+  tag: 25.11-ubuntu24.04
 ```
 
 with this:
@@ -207,6 +208,7 @@ Finally, deploy the Slurm cluster:
 
 ```shell
 helm install slurm oci://ghcr.io/slinkyproject/charts/slurm \
+  --version=1.1.0 \
   --values=values-slurm.yaml \
   --namespace=slurm \
   --create-namespace
