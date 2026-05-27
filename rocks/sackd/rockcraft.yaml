@@ -1,4 +1,4 @@
-# Copyright 2025 Canonical Ltd.
+# Copyright 2025-2026 Canonical Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 
 name: sackd
-version: 25.05.3
+version: "25.11"
 summary: The Slurm authentication and credential kiosk daemon
 description: |
   sackd is the Slurm Auth and Cred Kiosk Daemon. It can be used on login
@@ -27,36 +27,55 @@ platforms:
   amd64:
 package-repositories:
   - type: apt
-    ppa: ubuntu-hpc/slurm-wlm-25.05
+    components: [main, main/debug]
+    suites: [noble]
+    key-id: AE87121DC3E4A0B0F81FF023F6D0C5D5C6BEB37B
+    url: http://ppa.launchpadcontent.net/ubuntu-hpc/slurm-wlm-25.11/ubuntu
 
 services:
   sackd:
     override: replace
     startup: enabled
-    command: /usr/sbin/entrypoint.sh [ -v ]
+    command: >
+      /bin/bash -c 'exec /usr/sbin/fakesystemd.sh
+      /usr/sbin/sackd --systemd ${SACKD_OPTIONS:-} "$@"' _ [ -v ]
+    kill-delay: 35s
     backoff-delay: 1s
-    environment:
-      NOTIFY_SOCKET: /dev/null
 
 # Slinky provides arguments to the entrypoint directly, so we need to use an
 # entry point service to receive those arguments.
 entrypoint-service: sackd
 
 parts:
-  entrypoint:
+  scripts:
     plugin: dump
     source: ./scripts
     source-type: local
     organize:
-      entrypoint.sh: usr/sbin/
+      "*.sh": usr/sbin/
 
   sackd:
     plugin: nil
     overlay-packages:
-      - sackd
+      # base
+      - procps
+      - iputils-ping
+      - ncurses-bin
+
+      # base-extra
+      - openmpi-bin
+
+      # sackd
+      - socat
       - slurm-client
-      - slurm-wlm-plugins
-      - tini
+      - slurm-client-dbgsym
+      - slurm-wlm-doc
+      - sackd
+      - sackd-dbgsym
+      - slurm-wlm-basic-plugins
+      - slurm-wlm-basic-plugins-dbgsym
+      - libslurm44t64
+      - libslurm44t64-dbgsym
     overlay-script: |
       chroot $CRAFT_OVERLAY usermod -u 401 slurm
       chroot $CRAFT_OVERLAY groupmod -g 401 slurm
@@ -65,17 +84,3 @@ parts:
       mkdir -p $CRAFT_OVERLAY/run/slurm
       chmod -R 755 $CRAFT_OVERLAY/run/slurm
       chroot $CRAFT_OVERLAY chown -R slurm:slurm /run/slurm
-
-  # Requirements for Slinky compatibility
-  slinky-compat:
-    plugin: nil
-    overlay-packages:
-      - rsync
-      - gettext-base
-      - iputils-ping
-    stage-snaps:
-      - kubectl/1.33/stable
-    organize:
-      kubectl: bin/kubectl
-    stage:
-      - bin/kubectl
