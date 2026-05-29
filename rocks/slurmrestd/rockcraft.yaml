@@ -18,7 +18,8 @@ summary: The Slurm REST API daemon
 description: |
   slurmrestd is the REST API interface for Slurm.
 
-base: ubuntu@24.04
+base: bare
+build-base: ubuntu@24.04
 platforms:
   amd64:
 package-repositories:
@@ -26,13 +27,13 @@ package-repositories:
     components: [main, main/debug]
     suites: [noble]
     key-id: AE87121DC3E4A0B0F81FF023F6D0C5D5C6BEB37B
-    url: http://ppa.launchpadcontent.net/ubuntu-hpc/slurm-wlm-25.11/ubuntu
+    url: https://ppa.launchpadcontent.net/ubuntu-hpc/slurm-wlm-25.11/ubuntu
 
 services:
   slurmrestd:
     override: replace
     startup: enabled
-    command: /usr/sbin/slurmrestd [ 0.0.0.0:6820 ]
+    command: /usr/sbin/slurmrestd [ 0.0.0.0:6820 -v ]
     backoff-delay: 5s
 
 # Slinky provides arguments to the entrypoint directly, so we need to use an
@@ -40,9 +41,23 @@ services:
 entrypoint-service: slurmrestd
 
 parts:
+  slurm-user:
+    plugin: nil
+    stage-packages:
+      # essentials (required for bare base)
+      - base-passwd_data
+      - base-files_base
+    override-build: |
+      craftctl default
+      groupadd --root ${CRAFT_PART_INSTALL} --system --gid=401 slurm
+      useradd --root ${CRAFT_PART_INSTALL} \
+        --system --no-log-init \
+        --uid=401 --gid=401 \
+        --shell=/usr/sbin/nologin slurm
+
   slurmrestd:
     plugin: nil
-    overlay-packages:
+    stage-packages:
       # base
       - procps
       - iputils-ping

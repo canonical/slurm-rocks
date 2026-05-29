@@ -64,8 +64,27 @@ helm install slurm oci://ghcr.io/slinkyproject/charts/slurm \
 
 k8s kubectl wait pod --all --for=condition=Ready -n=slurm --timeout=10m
 
-port="\$(k8s kubectl -n=slurm get svc slurm-login-slinky -o jsonpath='{.spec.ports[0].nodePort}')"
+# Generate JWT token
+LOGIN_POD=\$(k8s kubectl get pod -n=slurm -o name | grep 'slurm-login-slinky' | head -1)
+export "\$(k8s kubectl exec -n=slurm "\$LOGIN_POD" -- scontrol token lifespan=3600)"
 
+# Get slurmrestd service ClusterIP
+RESTAPI_IP=\$(k8s kubectl get svc slurm-restapi -n=slurm -o jsonpath='{.spec.clusterIP}')
+
+echo "Testing slurmrestd ping endpoint..."
+PING_RESPONSE=\$(curl -s -H "X-SLURM-USER-NAME: root" -H "X-SLURM-USER-TOKEN: \$SLURM_JWT" http://\${RESTAPI_IP}:6820/slurm/v0.0.41/ping)
+echo "\$PING_RESPONSE" | grep -q '"pinged": "UP"'
+
+echo "Testing slurmrestd nodes endpoint..."
+NODES_RESPONSE=\$(curl -s -H "X-SLURM-USER-NAME: root" -H "X-SLURM-USER-TOKEN: \$SLURM_JWT" http://\${RESTAPI_IP}:6820/slurm/v0.0.41/nodes)
+echo "\$NODES_RESPONSE" | grep -q '"nodes":'
+
+echo "Testing slurmrestd partitions endpoint..."
+PARTITIONS_RESPONSE=\$(curl -s -H "X-SLURM-USER-NAME: root" -H "X-SLURM-USER-TOKEN: \$SLURM_JWT" http://\${RESTAPI_IP}:6820/slurm/v0.0.41/partitions)
+echo "\$PARTITIONS_RESPONSE" | grep -q '"partitions":'
+
+echo "Testing login node..."
+port="\$(k8s kubectl -n=slurm get svc slurm-login-slinky -o jsonpath='{.spec.ports[0].nodePort}')"
 ssh localhost \
     -i \${HOME}/.ssh/id_ed25519 \
     -p \$port \
